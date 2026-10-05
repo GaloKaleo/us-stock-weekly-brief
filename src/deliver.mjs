@@ -16,16 +16,18 @@ export function chunkMarkdown(md, maxBytes) {
   const sections = String(md).split(/\n(?=##\s)/);
   const chunks = [];
   let cur = '';
-  const flush = () => { if (cur.trim()) chunks.push(cur.trim()); cur = ''; };
+  // 去掉分片后遗留在末尾的孤立分割线
+  const clean = (s) => s.replace(/\n*-{3,}\s*$/, '').trim();
+  const flush = () => { const t = clean(cur); if (t) chunks.push(t); cur = ''; };
   for (const sec of sections) {
     if (bytes(sec) > maxBytes) {
       flush();
       let buf = '';
       for (const line of sec.split('\n')) {
-        if (bytes(buf + '\n' + line) > maxBytes) { chunks.push(buf.trim()); buf = line; }
+        if (bytes(buf + '\n' + line) > maxBytes) { const t = clean(buf); if (t) chunks.push(t); buf = line; }
         else buf = buf ? buf + '\n' + line : line;
       }
-      if (buf.trim()) chunks.push(buf.trim());
+      const t = clean(buf); if (t) chunks.push(t);
       continue;
     }
     if (bytes(cur + '\n' + sec) > maxBytes) flush();
@@ -54,11 +56,23 @@ async function postJson(url, body, { timeoutMs = 20000 } = {}) {
 }
 
 // ---------------- 企业微信 ----------------
+/**
+ * 必须用 markdown_v2 而不是旧的 markdown：
+ * 旧版 markdown 只支持标题/加粗/链接/引用/行内代码/字体颜色，
+ * **不支持列表、表格、分割线**——发过去会变成一堆裸文本，排版很难看。
+ * markdown_v2 支持列表、表格、分割线、斜体（代价是不支持字体颜色）。
+ */
 async function sendWecom(webhook, title, md) {
   const chunks = chunkMarkdown(md, 3800);
   for (let i = 0; i < chunks.length; i++) {
     const head = chunks.length > 1 ? '## ' + title + '（' + (i + 1) + '/' + chunks.length + '）\n\n' : '';
-    await postJson(webhook, { msgtype: 'markdown', markdown: { content: head + chunks[i] } });
+    const content = head + chunks[i];
+    try {
+      await postJson(webhook, { msgtype: 'markdown_v2', markdown_v2: { content } });
+    } catch (err) {
+      log('  · 企业微信 markdown_v2 未生效，回退到旧版 markdown：' + err.message);
+      await postJson(webhook, { msgtype: 'markdown', markdown: { content } });
+    }
     log('  ✓ 企业微信 第 ' + (i + 1) + '/' + chunks.length + ' 条已发送');
     if (i < chunks.length - 1) await new Promise((r) => setTimeout(r, CHUNK_DELAY_MS.wecom));
   }
@@ -121,19 +135,28 @@ async function sendPushPlus(token, title, md) {
  * 按配置推送。任何单个渠道失败都不影响其它渠道。
  * @returns {{channel:string, ok:boolean, error?:string}[]}
  */
+/**
+ * 按配置推送。任何单个渠道失败都不影响其它渠道。
+ * 每个渠道可以独立选择 content：
+ *   mode = 'short' → 发精简版（适合企业微信这种 4KB 限制、不想刷屏的渠道）
+ *   mode = 'full'  → 发完整版（默认）
+ * @returns {{channel:string, ok:boolean, mode:string, error?:string}[]}
+ */
 export async function deliverAll(channels, { title, fullMd, shortMd }) {
   const results = [];
-  const run = async (name, enabled, fn) => {
-    if (!enabled) return;
-    try { await fn(); results.push({ channel: name, ok: true }); }
-    catch (err) { log('  ✗ ' + name + ' 推送失败: ' + err.message); results.push({ channel: name, ok: false, error: err.message }); }
+  const pick = (ch) => (ch?.mode === 'short' && shortMd ? shortMd : fullMd);
+  const run = async (name, ch, fn) => {
+    if (!ch?.enabled) return;
+    const mode = ch.mode === 'short' && shortMd ? 'short' : 'full';
+    try { await fn(pick(ch)); results.push({ channel: name, ok: true, mode }); log('  · ' + name + ' 使用' + (mode === 'short' ? '精简版' : '完整版')); }
+    catch (err) { log('  ✗ ' + name + ' 推送失败: ' + err.message); results.push({ channel: name, ok: false, mode, error: err.message }); }
   };
 
-  await run('企业微信', channels.wecom?.enabled && channels.wecom.webhook, () => sendWecom(channels.wecom.webhook, title, fullMd));
-  await run('钉钉', channels.dingtalk?.enabled && channels.dingtalk.webhook, () => sendDingtalk(channels.dingtalk.webhook, channels.dingtalk.secret, title, fullMd));
-  await run('飞书', channels.feishu?.enabled && channels.feishu.webhook, () => sendFeishu(channels.feishu.webhook, title, fullMd));
-  await run('Server酱', channels.serverchan?.enabled && channels.serverchan.key, () => sendServerChan(channels.serverchan.key, title, fullMd));
-  await run('PushPlus', channels.pushplus?.enabled && channels.pushplus.token, () => sendPushPlus(channels.pushplus.token, title, fullMd));
+  await run('企业微信', channels.wecom, (md) => sendWecom(channels.wecom.webhook, title, md));
+  await run('钉钉', channels.dingtalk, (md) => sendDingtalk(channels.dingtalk.webhook, channels.dingtalk.secret, title, md));
+  await run('飞书', channels.feishu, (md) => sendFeishu(channels.feishu.webhook, title, md));
+  await run('Server酱', channels.serverchan, (md) => sendServerChan(channels.serverchan.key, title, md));
+  await run('PushPlus', channels.pushplus, (md) => sendPushPlus(channels.pushplus.token, title, md));
   return results;
 }
 
