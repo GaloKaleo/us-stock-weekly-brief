@@ -43,8 +43,14 @@
       "HYNIX": "HXSCL"
     },
     "keywords": [
-      "SK hynix",
-      "HBM memory"
+      {
+        "term": "SK hynix",
+        "sector": "存储芯片"
+      },
+      {
+        "term": "HBM memory",
+        "sector": "存储芯片"
+      }
     ],
     "maxAgeDays": 8,
     "limit": 24,
@@ -61,6 +67,45 @@
       "enabled": true,
       "batchSize": 6,
       "pages": 3
+    },
+    "sectors": {
+      "存储芯片": [
+        "MU",
+        "SNDK",
+        "HYNIX"
+      ],
+      "半导体": [
+        "NVDA",
+        "AMD",
+        "AVGO",
+        "INTC",
+        "MRVL",
+        "ASML",
+        "AXTI"
+      ],
+      "光通信 / 激光": [
+        "COHR",
+        "LITE"
+      ],
+      "AI 算力 / 数据中心供电": [
+        "CRWV",
+        "NBIS",
+        "BE"
+      ],
+      "大型科技": [
+        "MSFT",
+        "AMZN",
+        "GOOG",
+        "META",
+        "AAPL"
+      ],
+      "电动车": [
+        "TSLA"
+      ],
+      "指数 / ETF": [
+        "QQQ",
+        "SOXX"
+      ]
     }
   },
   "edgar": {
