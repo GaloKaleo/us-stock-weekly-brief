@@ -9,6 +9,39 @@ const IMPORTANCE_CN = { high: '🔴 高', medium: '🟡 中', low: '⚪ 低' };
  * @param {any[]} items 带 sector 字段的新闻
  * @param {string[]} order 板块顺序（来自配置）
  */
+export const fmtPct = (p) => (p >= 0 ? '📈 +' : '📉 ') + Number(p).toFixed(2) + '%';
+
+/**
+ * 把周涨跌幅附加到成稿上。
+ * 数字全部来自行情接口、由程序写入，绝不经过模型，避免 AI 编造价格。
+ *   1) 在「📈 自选股动向」板块开头插入领涨/领跌摘要
+ *   2) 给每只标的的加粗标题追加 📈 +x.xx% / 📉 -x.xx%
+ */
+export function annotatePerformance(md, perf) {
+  const keys = Object.keys(perf || {});
+  if (!keys.length) return md;
+
+  let out = String(md).split('\n').map((line) => {
+    const m = line.match(/^\*\*([^*]+)\*\*\s*$/);
+    if (!m) return line;
+    const inner = m[1].trim();
+    const first = inner.split(/[\s　]+/)[0];
+    const rec = perf[inner] || perf[first];
+    if (!rec) return line;
+    return line.trimEnd() + '　' + fmtPct(rec.pct);
+  }).join('\n');
+
+  const entries = keys.map((k) => [k, perf[k]]).sort((a, b) => b[1].pct - a[1].pct);
+  const asOf = entries[0]?.[1]?.asOf || '';
+  const up = entries.filter(([, v]) => v.pct > 0).slice(0, 4);
+  const down = entries.filter(([, v]) => v.pct < 0).slice(-4).reverse();
+  const L = ['**📊 本周涨跌**（' + (asOf ? '截至 ' + asOf + ' 收盘 · ' : '') + '共 ' + entries.length + ' 个标的）', ''];
+  if (up.length) L.push('- 📈 领涨：' + up.map(([s, v]) => s + ' +' + v.pct.toFixed(2) + '%').join('　'));
+  if (down.length) L.push('- 📉 领跌：' + down.map(([s, v]) => s + ' ' + v.pct.toFixed(2) + '%').join('　'));
+  L.push('');
+  return out.replace(/(^##\s*📈[^\n]*\n)/m, '$1\n' + L.join('\n'));
+}
+
 export function groupBySector(items, order = []) {
   const map = new Map();
   for (const it of items) {
@@ -88,6 +121,16 @@ export function renderDataMarkdown(data) {
   push('');
   push('> ⚠️ 下面的板块归属是**固定给定的**，请原样沿用这些板块名称和分组，不要按新闻内容重新归类。');
   push('');
+  const perf = data.watchlistPerf || {};
+  if (Object.keys(perf).length) {
+    const sorted = Object.entries(perf).sort((a, b) => b[1].pct - a[1].pct);
+    push('### 本周涨跌（截至 ' + (sorted[0]?.[1]?.asOf || '') + ' 收盘）');
+    push('');
+    push('> 这些数字**由程序自动附加到每只标的的标题行**，你在正文里可以引用，但不要写进加粗标题行。');
+    push('');
+    for (const [sym, v] of sorted) push('- ' + sym + '　' + (v.pct >= 0 ? '+' : '') + v.pct.toFixed(2) + '%　（最新收盘 ' + v.last + '）');
+    push('');
+  }
   if (data.watchlistNews?.length) {
     for (const [sector, list] of groupBySector(data.watchlistNews, data.cfg.watchlist?.sectorOrder || [])) {
       push('### ' + sector + '（' + list.length + ' 条）');
@@ -174,7 +217,9 @@ export const AI_INSTRUCTION = [
   '     它的新闻作为下面以 - 开头的条目，格式：- 标题（可译成中文） —— 一句话解读。',
   '  3. 标题里与标的重复的公司名前缀请去掉（「美光：xxx」→「xxx」），避免和标题行重复。',
   '  4. 数据里出现过的标的一个都不能漏；若某条确实是纯市场综述，保留条目但在解读里点明。',
-  '  5. 同一只标的不能出现在两个板块下。）',
+  '  5. 同一只标的不能出现在两个板块下。',
+  '  6. 不要在加粗标题行里写涨跌幅数字 —— 程序会自动把真实的周涨跌附加到标题行末尾。',
+  '     但你可以在下面的解读文字里引用这些幅度，来说明消息与股价走势是否一致。）',
   '',
   '## 🔭 前瞻日历',
   '',
@@ -311,7 +356,10 @@ export function renderFallbackMarkdown(data) {
     for (const [sector, list] of groupBySector(data.watchlistNews, data.cfg.watchlist?.sectorOrder || [])) {
       push('### ' + sector);
       push('');
-      for (const n of list) push('- **' + n.symbol + '**　' + clip(n.title, 74) + '（' + n.source + '）' + (n.link ? '　' + n.link : ''));
+      for (const n of list) {
+        const rec = (data.watchlistPerf || {})[n.symbol];
+        push('- **' + n.symbol + '**' + (rec ? '　' + fmtPct(rec.pct) : '') + '　' + clip(n.title, 72) + '（' + n.source + '）' + (n.link ? '　' + n.link : ''));
+      }
       push('');
     }
   } else { push('- 窗口内无自选股新闻'); push(''); }
@@ -336,7 +384,7 @@ export function renderFinalMarkdown(aiText, data) {
   const body = aiText && aiText.trim()
     ? decorateSections(aiText.trim())
     : '> ⚠️ 本期 AI 解读不可用，以下为规则聚合版本。\n\n' + renderFallbackMarkdown(data);
-  return withFooter(header + '\n' + body);
+  return withFooter(header + '\n' + annotatePerformance(body, data.watchlistPerf || {}));
 }
 
 /** 从 AI 周报里抽出某一节正文（用于精简版复用 AI 的要点） */
