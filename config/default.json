@@ -13,6 +13,56 @@
     "maxPerDay": 8
   },
   "keyDatesDays": 45,
+  "watchlist": {
+    "symbols": [
+      "MU",
+      "SNDK",
+      "HYNIX",
+      "SOXX",
+      "QQQ",
+      "COHR",
+      "LITE",
+      "AXTI",
+      "NVDA",
+      "AMD",
+      "ASML",
+      "AVGO",
+      "INTC",
+      "MRVL",
+      "NBIS",
+      "CRWV",
+      "BE",
+      "MSFT",
+      "AMZN",
+      "GOOG",
+      "META",
+      "AAPL",
+      "TSLA"
+    ],
+    "aliases": {
+      "HYNIX": "HXSCL"
+    },
+    "keywords": [
+      "SK hynix",
+      "HBM memory"
+    ],
+    "maxAgeDays": 8,
+    "limit": 24,
+    "perSymbol": 4,
+    "excludePublishers": [
+      "bnk invest",
+      "marketbeat",
+      "investorideas",
+      "thestockmarketwatch",
+      "insidermonkey",
+      "zacks"
+    ],
+    "marketaux": {
+      "enabled": true,
+      "batchSize": 6,
+      "pages": 3
+    }
+  },
   "edgar": {
     "days": 7,
     "watchlist": [
