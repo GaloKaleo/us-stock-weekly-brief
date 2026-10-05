@@ -443,6 +443,161 @@ export function computeKeyDates(startYmd, days, fomc = []) {
   return out;
 }
 
-export function buildDataForWeek(cfg, opts = {}) {
-  return { cfg, opts };
+// ---------------------------------------------------------------- 自选股新闻
+const SA_RSS = 'https://seekingalpha.com/api/sa/combined/';
+const MARKETAUX = 'https://api.marketaux.com/v1/news/all';
+
+const NEWS_SIGNAL = /(beat|miss|guidance|upgrade|downgrade|price target|earnings|revenue|profit|acquisition|merger|partnership|contract|buyback|dividend|recall|lawsuit|investigat|fda|approval|launch|supply|capacity|order|hbm|dram|nand|wafer|foundry|capex|data ?cent|ai )/i;
+
+function normalizeTitle(t) {
+  return String(t || '').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '').slice(0, 70);
+}
+
+/**
+ * 自选股新闻。三个免费源互补：
+ *   1. SeekingAlpha 个股 RSS —— 主力。每只股票 30 条、无额度限制、股票垂直内容质量最高。
+ *   2. Marketaux —— 补充。跨代码聚合，带实体情绪分；但免费档限 30 次/天且每次最多 3 条，
+ *      所以按 batchSize 合并代码 + 少量翻页，并强制带 published_after（否则会返回 2021 年的旧闻）。
+ *   3. 关键词搜索（Marketaux search=）—— 覆盖 SK 海力士这类没有美股代码的标的。
+ */
+export async function collectWatchlistNews(cfg, now = Date.now()) {
+  const w = cfg.watchlist || {};
+  const symbols = w.symbols || [];
+  const aliases = w.aliases || {};
+  const keywords = w.keywords || [];
+  if (!symbols.length && !keywords.length) return [];
+
+  const maxAgeDays = w.maxAgeDays ?? 8;
+  const cutoff = now - maxAgeDays * 86400000;
+  const block = (w.excludePublishers || []).map((s) => String(s).toLowerCase());
+  const perSymbol = w.perSymbol ?? 4;
+  const seen = new Set();
+  const items = [];
+  const perSymbolCount = new Map();
+
+  const push = (rec) => {
+    const key = normalizeTitle(rec.title);
+    if (!key || key.length < 12 || seen.has(key)) return;
+    const src = String(rec.source || '').toLowerCase();
+    if (block.some((b) => src.includes(b))) return;
+    const sym = rec.symbol || '-';
+    const n = perSymbolCount.get(sym) || 0;
+    if (n >= perSymbol) return;
+    perSymbolCount.set(sym, n + 1);
+    seen.add(key);
+    items.push(rec);
+  };
+
+  const httpOpts = { timeoutMs: 20000, retries: 1 };
+
+  // ---- 1) SeekingAlpha 个股 RSS
+  for (const sym of symbols) {
+    const q = aliases[sym] || sym;
+    try {
+      const xml = await httpText(SA_RSS + encodeURIComponent(q) + '.xml', httpOpts);
+      for (const it of parseFeed(xml)) {
+        const t = Date.parse(it.date);
+        if (Number.isNaN(t) || t < cutoff) continue;
+        push({ symbol: sym, title: it.title, link: it.link, publishedAt: new Date(t).toISOString(), source: 'SeekingAlpha', sentiment: null });
+      }
+    } catch (err) {
+      if (!/HTTP 404/.test(err.message)) log('  ! 自选股 ' + sym + ' 新闻失败: ' + err.message);
+    }
+    await sleep(120);
+  }
+
+  // ---- 2) Marketaux：只用来补 SeekingAlpha 没覆盖到的代码 + 关键词搜索
+  //         （免费档只有 30 次/天、每次最多 3 条，全量查既浪费又抢不到位置）
+  const mxKey = (process.env.MARKETAUX_API_KEY || w.marketaux?.key || '').trim();
+  const gapSymbols = symbols.filter((s) => !items.some((it) => it.symbol === s));
+  if (w.marketaux?.enabled !== false && mxKey && (gapSymbols.length || keywords.length)) {
+    const batchSize = w.marketaux?.batchSize ?? 6;
+    const pages = w.marketaux?.pages ?? 2;
+    const iso = new Date(cutoff).toISOString().slice(0, 10) + 'T00:00';
+    const batches = [];
+    for (let i = 0; i < gapSymbols.length; i += batchSize) {
+      batches.push(gapSymbols.slice(i, i + batchSize).map((s) => aliases[s] || s));
+    }
+    let requests = 0;
+    const call = async (params) => {
+      const url = MARKETAUX + '?' + params + '&api_token=' + encodeURIComponent(mxKey);
+      requests++;
+      return httpJson(url, { timeoutMs: 20000, retries: 1, headers: { 'User-Agent': 'us-stock-weekly-brief' } });
+    };
+    for (const batch of batches) {
+      for (let p = 1; p <= pages; p++) {
+        try {
+          const j = await call('symbols=' + batch.join(',') + '&filter_entities=true&language=en&limit=3&page=' + p + '&published_after=' + iso);
+          const rows = j?.data || [];
+          for (const d of rows) {
+            const ent = (d.entities || [])[0] || {};
+            const t = Date.parse(d.published_at);
+            if (Number.isNaN(t) || t < cutoff) continue;
+            const orig = Object.keys(aliases).find((k) => aliases[k] === ent.symbol) || ent.symbol || '-';
+            push({
+              symbol: orig, title: d.title, link: d.url,
+              publishedAt: new Date(t).toISOString(),
+              source: String(d.source || 'Marketaux').replace(/^www\./, ''),
+              sentiment: typeof ent.sentiment_score === 'number' ? ent.sentiment_score : null,
+            });
+          }
+          if (rows.length < 3) break;
+        } catch (err) {
+          log('  ! Marketaux 批次失败: ' + err.message);
+          break;
+        }
+        await sleep(300);
+      }
+    }
+    // ---- 3) 关键词（覆盖非美股标的）
+    for (const kw of keywords) {
+      try {
+        const j = await call('search=' + encodeURIComponent(kw) + '&language=en&limit=3&published_after=' + iso);
+        for (const d of j?.data || []) {
+          const t = Date.parse(d.published_at);
+          if (Number.isNaN(t) || t < cutoff) continue;
+          push({ symbol: kw, title: d.title, link: d.url, publishedAt: new Date(t).toISOString(), source: String(d.source || 'Marketaux').replace(/^www\./, ''), sentiment: null });
+        }
+      } catch (err) { log('  ! Marketaux 关键词「' + kw + '」失败: ' + err.message); }
+      await sleep(300);
+    }
+    log('      Marketaux 用了 ' + requests + ' 次请求（免费档 30 次/天）');
+  } else if (!mxKey) {
+    log('      （未配置 MARKETAUX_API_KEY，仅用 SeekingAlpha）');
+  }
+
+  // ---- 排序：时效 + 标题信号 + 情绪强度
+  const score = (it) => {
+    let s = 0;
+    const ageH = (now - Date.parse(it.publishedAt)) / 3600000;
+    if (ageH <= 24) s += 3; else if (ageH <= 72) s += 2; else if (ageH <= 168) s += 1;
+    if (NEWS_SIGNAL.test(it.title)) s += 1.5;
+    if (it.sentiment !== null && Math.abs(it.sentiment) >= 0.4) s += 0.5;
+    if (/seekingalpha/i.test(it.source)) s += 0.3;
+    return s;
+  };
+  items.sort((a, b) => score(b) - score(a) || (a.publishedAt < b.publishedAt ? 1 : -1));
+
+  // 轮转挑选：先每个代码保底 1 条，再第二轮、第三轮补满。
+  // 否则 META / NVDA / MSFT 这些新闻大户会把 COHR / AXTI / NBIS 这类冷门标的挤没。
+  const groups = new Map();
+  for (const it of items) {
+    if (!groups.has(it.symbol)) groups.set(it.symbol, []);
+    groups.get(it.symbol).push(it);
+  }
+  const lists = [...groups.values()];
+  const limit = w.limit ?? 18;
+  const picked = [];
+  for (let round = 0; picked.length < limit; round++) {
+    let progressed = false;
+    for (const g of lists) {
+      if (!g[round]) continue;
+      picked.push(g[round]);
+      progressed = true;
+      if (picked.length >= limit) break;
+    }
+    if (!progressed) break;
+  }
+  picked.sort((a, b) => score(b) - score(a));
+  return picked;
 }
