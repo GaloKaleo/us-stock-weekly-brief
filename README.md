@@ -143,7 +143,7 @@
 | econ.days | 经济日历天数（默认 6，即本周一到周六） |
 | keyDatesDays | 关键日期前瞻天数（默认 45） |
 | edgar.watchlist | 关注 8-K 的股票代码列表 |
-| llm.model | 使用的模型，默认 deepseek-chat |
+| llm.model | 使用的模型，默认 deepseek-flash |
 | llm.enabled | 设为 false 可关闭 AI，只输出规则聚合版 |
 | channels.*.mode | full = 完整版（默认）；short = 精简版（要点速览+日历+财报，约 1.6KB 一条发完） |
 
