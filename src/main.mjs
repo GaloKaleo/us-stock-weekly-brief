@@ -121,6 +121,10 @@ async function main() {
       earnings: { minMarketCap: cfg.earnings?.minMarketCap ?? 20e9 },
       keyDatesDays: cfg.keyDatesDays ?? 45,
       edgar: { days: cfg.edgar?.days ?? 7 },
+      watchlist: {
+        maxAgeDays: cfg.watchlist?.maxAgeDays ?? 8,
+        sectorOrder: Object.keys(cfg.watchlist?.sectors || {}),
+      },
     },
     news, econ, earnings, edgar, keyDates, fomc, watchlistNews, errors,
   };
