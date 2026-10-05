@@ -40,12 +40,13 @@ function loadConfig() {
 function resolveChannels(cfg) {
   const env = process.env;
   const c = cfg.channels || {};
+  const mode = (envName, cfgMode, fallback) => (env[envName] || cfgMode || fallback).trim();
   return {
-    wecom: { enabled: Boolean(env.WECOM_WEBHOOK || c.wecom?.enabled), webhook: (env.WECOM_WEBHOOK || c.wecom?.webhook || '').trim() },
-    dingtalk: { enabled: Boolean(env.DINGTALK_WEBHOOK), webhook: (env.DINGTALK_WEBHOOK || c.dingtalk?.webhook || '').trim(), secret: (env.DINGTALK_SECRET || c.dingtalk?.secret || '').trim() },
-    feishu: { enabled: Boolean(env.FEISHU_WEBHOOK), webhook: (env.FEISHU_WEBHOOK || c.feishu?.webhook || '').trim() },
-    serverchan: { enabled: Boolean(env.SERVERCHAN_KEY), key: (env.SERVERCHAN_KEY || c.serverchan?.key || '').trim() },
-    pushplus: { enabled: Boolean(env.PUSHPLUS_TOKEN), token: (env.PUSHPLUS_TOKEN || c.pushplus?.token || '').trim() },
+    wecom: { enabled: Boolean(env.WECOM_WEBHOOK || c.wecom?.enabled), webhook: (env.WECOM_WEBHOOK || c.wecom?.webhook || '').trim(), mode: mode('WECOM_MODE', c.wecom?.mode, 'full') },
+    dingtalk: { enabled: Boolean(env.DINGTALK_WEBHOOK), webhook: (env.DINGTALK_WEBHOOK || c.dingtalk?.webhook || '').trim(), secret: (env.DINGTALK_SECRET || c.dingtalk?.secret || '').trim(), mode: mode('DINGTALK_MODE', c.dingtalk?.mode, 'full') },
+    feishu: { enabled: Boolean(env.FEISHU_WEBHOOK), webhook: (env.FEISHU_WEBHOOK || c.feishu?.webhook || '').trim(), mode: mode('FEISHU_MODE', c.feishu?.mode, 'full') },
+    serverchan: { enabled: Boolean(env.SERVERCHAN_KEY), key: (env.SERVERCHAN_KEY || c.serverchan?.key || '').trim(), mode: mode('SERVERCHAN_MODE', c.serverchan?.mode, 'full') },
+    pushplus: { enabled: Boolean(env.PUSHPLUS_TOKEN), token: (env.PUSHPLUS_TOKEN || c.pushplus?.token || '').trim(), mode: mode('PUSHPLUS_MODE', c.pushplus?.mode, 'full') },
   };
 }
 
