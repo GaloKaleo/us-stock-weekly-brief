@@ -45,7 +45,8 @@
     "keywords": [
       {
         "term": "SK hynix",
-        "sector": "存储芯片"
+        "sector": "存储芯片",
+        "perfSymbol": "HXSCL"
       },
       {
         "term": "HBM memory",
