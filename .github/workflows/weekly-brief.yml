@@ -1,0 +1,69 @@
+name: 美股周报（每周一早晨）
+
+on:
+  schedule:
+    # GitHub 的 cron 使用 UTC。00:00 UTC = 北京时间 08:00（夏令时期间同为 08:00，因为中国不实行夏令时）
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只生成报告、不推送（调试用）'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-us-stock-brief
+  cancel-in-progress: false
+
+jobs:
+  brief:
+    name: 采集 · 解读 · 推送
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 生成并推送周报
+        env:
+          LLM_PROVIDER: deepseek
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+
+          # 群机器人：填哪个就推哪个，留空的自动跳过
+          WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
+          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+          DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+
+          # 可选渠道
+          SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+        run: node src/main.mjs
+
+      - name: 上传报告产物
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: us-stock-brief-${{ github.run_number }}
+          path: |
+            out/latest.md
+            out/latest.html
+            out/*.md
+            out/*.html
+            out/raw-data.json
+          retention-days: 90
+
+      - name: 失败时在 Summary 中标注
+        if: failure()
+        run: echo "## ❌ 本次运行失败，请查看上方日志" >> "$GITHUB_STEP_SUMMARY"
