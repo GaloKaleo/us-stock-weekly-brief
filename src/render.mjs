@@ -69,31 +69,66 @@ export function renderDataMarkdown(data) {
 export const AI_INSTRUCTION = [
   '你是一名资深美股策略分析师，为一位中文读者撰写每周一早晨的「美股前瞻周报」。',
   '',
-  '写作要求：',
-  '1. 全部用简体中文，专业但易懂；不要出现英文长句，专有名词可保留英文。',
-  '2. **只使用上面提供的数据**，绝对不要编造新闻、日期、数字或公司。数据里没有的不要写。',
-  '3. 目标是让读者在这些事件发生**之前**就理解"为什么要关心它"，而不是事后复述。',
+  '【排版硬性要求】读者是在手机上看这份报告（企业微信群 + 微信推送），请严格遵守：',
+  '1. **绝对不要使用表格**。手机屏幕窄，表格会被挤成一团看不清。',
+  '2. **按日期分组**：每个交易日单独一行加粗小标题，下面用 - 列表逐条列出当天事件。',
+  '3. 每条事件开头用 🔴 标注高重要性、🟡 标注中等重要性。',
+  '4. 每条事件固定占一行，格式为：- {圆点} **事件名**　关键数值 —— 一句话解读',
+  '   （「——」前后各留一个空格；关键数值写成「预期 55.1 / 前值 55.4」这种形式，数据里没有就整段省略）',
+  '5. 板块之间空一行，不要出现超过三行的长段落。',
+  '',
+  '【内容要求】',
+  '1. 全部用简体中文，专业但易懂；专有名词可保留英文。',
+  '2. **只使用下面提供的数据**，绝对不要编造新闻、日期、数字或公司。',
+  '3. 目标是让读者在事件发生**之前**理解「为什么要关心它」，而不是事后复述。',
   '4. 严格按下面五节输出，不要添加额外章节，不要写"根据提供的数据"这类元话术，直接进入正文。',
   '',
-  '输出格式（Markdown）：',
+  '【输出格式示例 —— 请严格按照这个样式】',
   '',
   '## 📌 一周要点速览',
-  '3-5 条要点，每条一句话，说明本周市场最需要关注什么。',
+  '',
+  '**① 就业走弱 vs 通胀降温**',
+  '9 月非农仅新增 2.9 万、失业率升至 4.2%，核心 PCE 低于预期，加息担忧明显缓解。',
+  '',
+  '**② ISM 非制造业 PMI 是本周最关键数据**',
+  '前值 55.4、预期 55.1，就业分项已跌破荣枯线，是判断服务业是否跟随制造业走弱的关键。',
+  '',
+  '（共 3-5 条，固定格式：加粗的一句话标题 + 换行 + 一句说明）',
   '',
   '## 🗓 本周关键日程',
-  '按日期顺序列出本周最重要的经济数据与事件。用一个 Markdown 表格：日期 | 事件 | 重要性 | 提前了解要点。',
-  '"提前了解要点"列每条 1-2 句，解释这个数据是什么、市场为什么在意、超预期/低于预期分别利好什么。',
+  '',
+  '**10/06 周二**',
+  '- 🔴 **ISM 非制造业 PMI**　预期 55.1 / 前值 55.4 —— 服务业景气度风向标，低于预期利好债市与防御板块',
+  '- 🟡 **ADP 就业**　前值 2 万 —— 高频就业指标，可作为周五初请的先行参考',
+  '',
+  '**10/07 周三**',
+  '- 🔴 **FOMC 会议纪要** —— 市场借此判断委员们对就业下行与通胀黏性的权衡',
+  '',
+  '（每个交易日一个小标题，当天的重要事件逐条列出）',
   '',
   '## 📊 重点财报前瞻',
-  '挑选市值最大或最受关注的 6-10 家，说明它是谁、属于什么行业、市场关注它的什么指标、对板块的指示意义。',
   '',
-  '## 🔭 前瞻日历（未来 2-6 周）',
-  '列出 FOMC、期权到期/四巫日、指数再平衡、休市日等，说明各自意味着什么、投资者需要提前做什么。',
+  '**10/08 周四 盘前**',
+  '- **PEP 百事可乐**　市值 $171.8B　预期 EPS 2.29 —— 必需消费代表，关注北美量价是否齐跌',
+  '',
+  '（按「日期 + 盘前/盘后」分组，挑市值最大或最受关注的 6-10 家，格式同上）',
+  '',
+  '## 🔭 前瞻日历',
+  '',
+  '- **10/16 月度期权到期** —— 尾盘成交量与波动容易被放大，注意持仓集中度',
+  '- **10/27-28 FOMC 议息会议** —— 全月波动最大的事件之一',
+  '',
+  '（列出 FOMC、期权到期/四巫日、指数再平衡、休市日，说明对投资者意味着什么）',
   '',
   '## 📰 上周要闻回顾',
-  '把新闻合并归类（宏观政策 / 科技AI / 财报个股 / 其他），每组 2-4 条，写明事件与影响，并给出来源链接。',
   '',
-  '最后单独一行写：> 本简报由自动化程序 + AI 生成，仅供信息参考，不构成任何投资建议。',
+  '**宏观政策**',
+  '- 新闻标题（来源） —— 一句话说明影响',
+  '',
+  '**科技 AI**',
+  '- ...',
+  '',
+  '（用 2-4 个小标题把新闻归类，每组 2-4 条，有条目对应的链接就附在末尾）',
 ].join('\n');
 
 export function buildLlmPrompt(dataMarkdown) {
@@ -115,47 +150,189 @@ function withFooter(md) {
   return md.trimEnd() + '\n\n> 本简报由自动化程序 + AI 生成，仅供信息参考，不构成任何投资建议。\n';
 }
 
-/** 把 Markdown 标题整体降一级，避免与报告主标题冲突 */
-export function demoteHeadings(md) {
-  return String(md).split('\n').map((line) => (/^#{1,5}\s/.test(line) ? '#' + line : line)).join('\n');
+const shortDate = (d) => String(d).slice(5).replace('-', '/');
+const stripTrailingDate = (t) => String(t).replace(/（\d{4}-\d{2}-\d{2}）\s*$/, '');
+
+/** 头部元信息：用短日期，手机上一眼扫完 */
+function reportHeader(data) {
+  return '# 🇺🇸 美股周报 · ' + shortDate(data.weekStart) + ' 当周\n\n' +
+    '> 覆盖 ' + shortDate(data.weekStart) + ' ~ ' + shortDate(data.weekEnd) + '（美东）　·　生成于 ' + data.generatedAtCn + '\n';
+}
+
+/** 在每一节前插入分割线，让长报告在手机上的层次更清楚（markdown_v2 / 微信均支持 ---） */
+export function decorateSections(md) {
+  const out = [];
+  let seenSection = false;
+  for (const line of String(md).split('\n')) {
+    if (/^##\s/.test(line)) {
+      if (seenSection) out.push('', '---', '');
+      seenSection = true;
+    }
+    out.push(line);
+  }
+  return out.join('\n');
+}
+
+/**
+ * 规则聚合版（AI 不可用时的兜底）。
+ * 与 AI 版保持同一套手机友好的列表排版，不使用表格。
+ */
+export function renderFallbackMarkdown(data) {
+  const L = [];
+  const push = (s = '') => L.push(s);
+
+  push('## 🗓 本周关键日程');
+  push('');
+  const byDay = new Map();
+  for (const e of data.econ) {
+    if (!byDay.has(e.date)) byDay.set(e.date, []);
+    byDay.get(e.date).push(e);
+  }
+  if (byDay.size) {
+    for (const [d, items] of byDay) {
+      push('**' + shortDate(d) + ' ' + items[0].weekdayCn + '**');
+      for (const e of items) {
+        const dot = e.importance === 'high' ? '🔴' : '🟡';
+        const nums = [e.consensus && e.consensus !== '—' ? '预期 ' + e.consensus : '', e.previous && e.previous !== '—' ? '前值 ' + e.previous : ''].filter(Boolean).join(' / ');
+        push('- ' + dot + ' **' + e.event + '**' + (nums ? '　' + nums : ''));
+      }
+      push('');
+    }
+  } else { push('_本周无重要美国经济数据_'); push(''); }
+
+  push('## 📊 重点财报前瞻');
+  push('');
+  const featured = data.earnings.slice(0, 12);
+  const eByDay = new Map();
+  for (const e of featured) {
+    const k = e.date + '|' + e.timeCn;
+    if (!eByDay.has(k)) eByDay.set(k, []);
+    eByDay.get(k).push(e);
+  }
+  if (eByDay.size) {
+    for (const [k, items] of eByDay) {
+      const [d, t] = k.split('|');
+      push('**' + shortDate(d) + ' ' + items[0].weekdayCn + ' ' + t + '**');
+      for (const e of items) push('- **' + e.symbol + ' ' + e.name + '**　市值 ' + fmtMoney(e.marketCap) + '　预期 EPS ' + e.epsForecast);
+      push('');
+    }
+    if (data.earnings.length > featured.length) {
+      push('_（本周另有 ' + (data.earnings.length - featured.length) + ' 家市值 ≥ ' + fmtMoney(data.cfg.earnings.minMarketCap) + ' 的公司披露，完整列表见 Actions 产物）_');
+      push('');
+    }
+  } else { push('_窗口内无大市值公司披露_'); push(''); }
+
+  push('## 🔭 前瞻日历');
+  push('');
+  if (data.keyDates.length) {
+    for (const k of data.keyDates) {
+      push('- **' + k.date + (k.endDate && k.endDate !== k.date ? ' ~ ' + k.endDate : '') + ' ' + stripTrailingDate(k.title) + '** —— ' + k.detail);
+    }
+  } else push('- 未来窗口内无特殊日程');
+  push('');
+
+  push('## 📎 SEC 8-K 重大公告');
+  push('');
+  if (data.edgar.length) {
+    for (const e of data.edgar) {
+      push('- **' + shortDate(e.date) + ' ' + e.ticker + '**' + (e.meanings.length ? '　事项：' + e.meanings.join('、') : '') + (e.url ? '　' + e.url : ''));
+    }
+  } else push('- 窗口内无自选股 8-K 提交');
+  push('');
+
+  push('## 📰 最新新闻');
+  push('');
+  const groups = new Map();
+  for (const n of data.news) {
+    if (!groups.has(n.category)) groups.set(n.category, []);
+    groups.get(n.category).push(n);
+  }
+  for (const [cat, items] of groups) {
+    push('**' + cat + '**');
+    for (const n of items.slice(0, 5)) push('- ' + n.title + '（' + n.source + '）' + (n.link ? '　' + n.link : ''));
+    push('');
+  }
+  return L.join('\n').trimEnd();
 }
 
 export function renderFinalMarkdown(aiText, data) {
-  const header =
-    '# 🇺🇸 美股周报 · ' + data.weekStart + ' 当周\n\n' +
-    '> 覆盖周期：' + data.weekStart + ' ~ ' + data.weekEnd + '（美东）　·　生成时间：' + data.generatedAtCn + '\n\n';
-  if (aiText && aiText.trim()) return header + withFooter(aiText.trim());
-  return header + '> ⚠️ 本期 AI 解读不可用，以下为规则聚合版本。\n\n' + withFooter(demoteHeadings(renderDataMarkdown(data)));
+  const header = reportHeader(data);
+  const body = aiText && aiText.trim()
+    ? decorateSections(aiText.trim())
+    : '> ⚠️ 本期 AI 解读不可用，以下为规则聚合版本。\n\n' + renderFallbackMarkdown(data);
+  return withFooter(header + '\n' + body);
 }
 
+/** 从 AI 周报里抽出某一节正文（用于精简版复用 AI 的要点） */
+export function extractSection(md, headingRe) {
+  const lines = String(md || '').split('\n');
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (start === -1) { if (headingRe.test(lines[i])) start = i + 1; continue; }
+    if (/^##\s/.test(lines[i])) return lines.slice(start, i).join('\n').trim();
+  }
+  return start === -1 ? '' : lines.slice(start).join('\n').trim();
+}
+
+/**
+ * 精简版：给有严格长度限制的渠道用（企业微信 markdown 单条 4096 字节）。
+ * 优先复用 AI 的「一周要点速览」，没有 AI 时退回头条新闻。
+ * 目标体积 <= 3500 字节，确保一条发完。
+ */
 export function renderShortMarkdown(data, aiText) {
+  const clip = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length <= n ? s : s.slice(0, n - 1) + '…'; };
   const L = [];
   L.push('## 🇺🇸 美股周报 · ' + data.weekStart + ' 当周');
   L.push('');
-  L.push('**本周关键日期**');
-  L.push('');
-  for (const k of data.keyDates.slice(0, 8)) {
-    L.push('- ' + k.date + '　' + k.title);
+
+  const highlights = extractSection(aiText, /^##\s*📌/);
+  const bullets = highlights.split('\n').map((l) => l.match(/^\s*[-*]\s+(.*)$/)).filter(Boolean).map((m) => m[1]);
+  if (bullets.length) {
+    L.push('**要点速览**');
+    L.push('');
+    for (const b of bullets.slice(0, 5)) L.push('- ' + clip(b.replace(/\*\*/g, ''), 100));
+    L.push('');
+  } else {
+    L.push('**头条**');
+    L.push('');
+    for (const n of data.news.slice(0, 5)) L.push('- ' + clip(n.title, 64));
+    L.push('');
   }
-  if (!data.keyDates.length) L.push('- 本周无 FOMC / 期权到期 / 休市等特殊日程');
+
+  L.push('**关键日期**');
   L.push('');
+  if (data.keyDates.length) {
+    for (const k of data.keyDates.slice(0, 4)) {
+      // 事件标题里往往已经带了日期（如「月度期权到期（2026-10-16）」），去掉避免重复
+      const title = k.title.replace(/（\d{4}-\d{2}-\d{2}）\s*$/, '');
+      L.push('- ' + k.date + '　' + clip(title, 44));
+    }
+  } else L.push('- 本周无 FOMC / 期权到期 / 休市等特殊日程');
+  L.push('');
+
   L.push('**本周重要数据**');
   L.push('');
-  const high = data.econ.filter((e) => e.importance === 'high').slice(0, 8);
-  if (high.length) for (const e of high) L.push('- ' + e.date + '　' + e.event + '（预期 ' + e.consensus + '）');
-  else L.push('- 本周无高重要性数据');
+  // 经济日历里同一份数据常拆成多个子项（ISM 的非制造业 PMI/就业/新订单/物价…），
+  // 精简版按前两个单词归组，每组只保留最短的那个名字，避免被截断成看不懂的碎片。
+  const groups = new Map();
+  for (const e of data.econ.filter((x) => x.importance === 'high')) {
+    const key = e.event.toLowerCase().split(/\s+/).slice(0, 2).join(' ');
+    const cur = groups.get(key);
+    if (!cur || e.event.length < cur.event.length) groups.set(key, e);
+  }
+  const high = [...groups.values()].slice(0, 5);
+  if (high.length) {
+    for (const e of high) L.push('- ' + e.date.slice(5) + '　' + clip(e.event, 40) + (e.consensus && e.consensus !== '—' ? '（预期 ' + clip(e.consensus, 10) + '）' : ''));
+  } else L.push('- 本周无高重要性数据');
   L.push('');
-  L.push('**重点关注财报**');
+
+  L.push('**重点财报**');
   L.push('');
-  const top = data.earnings.slice(0, 8);
-  if (top.length) for (const e of top) L.push('- ' + e.date + ' ' + e.timeCn + '　' + e.symbol + ' ' + e.name + '（' + fmtMoney(e.marketCap) + '）');
+  const top = data.earnings.slice(0, 6);
+  if (top.length) for (const e of top) L.push('- ' + e.date.slice(5) + ' ' + e.timeCn + '　' + e.symbol + '　' + fmtMoney(e.marketCap));
   else L.push('- 窗口内无大市值公司披露');
   L.push('');
-  L.push('**头条**');
-  L.push('');
-  for (const n of data.news.slice(0, 6)) L.push('- [' + n.source + '] ' + n.title);
-  L.push('');
-  L.push('完整报告见本次运行产物（Artifacts）。');
+  L.push('> 完整 AI 解读见 Server酱推送，或 Actions 运行产出的 Artifacts。');
   return L.join('\n');
 }
 
