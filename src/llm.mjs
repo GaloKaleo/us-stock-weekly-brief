@@ -5,7 +5,7 @@ export const PROVIDERS = {
   deepseek: {
     label: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com',
-    model: 'deepseek-chat',
+    model: 'deepseek-flash',
     keyEnv: 'DEEPSEEK_API_KEY',
   },
   'github-models': {
