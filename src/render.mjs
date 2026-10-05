@@ -3,6 +3,26 @@ import { fmtMoney, weekdayNameCn, truncate, addDays, parseYmd, daysBetween } fro
 
 const IMPORTANCE_CN = { high: '🔴 高', medium: '🟡 中', low: '⚪ 低' };
 
+/**
+ * 按板块给自选股新闻分组。板块归属由 config.watchlist.sectors 固定，
+ * 不依赖 AI 判断（否则「纳斯达克上涨」这类市场综述会把 INTC 归到指数板块）。
+ * @param {any[]} items 带 sector 字段的新闻
+ * @param {string[]} order 板块顺序（来自配置）
+ */
+export function groupBySector(items, order = []) {
+  const map = new Map();
+  for (const it of items) {
+    const s = it.sector || '其他';
+    if (!map.has(s)) map.set(s, []);
+    map.get(s).push(it);
+  }
+  const keys = [...map.keys()].sort((a, b) => {
+    const ia = order.indexOf(a), ib = order.indexOf(b);
+    return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
+  });
+  return keys.map((k) => [k, map.get(k)]);
+}
+
 export function renderDataMarkdown(data) {
   const L = [];
   const push = (s = '') => L.push(s);
@@ -66,11 +86,18 @@ export function renderDataMarkdown(data) {
 
   push('## 六、自选股新闻（最近 ' + (data.cfg.watchlist?.maxAgeDays ?? 8) + ' 天）');
   push('');
+  push('> ⚠️ 下面的板块归属是**固定给定的**，请原样沿用这些板块名称和分组，不要按新闻内容重新归类。');
+  push('');
   if (data.watchlistNews?.length) {
-    for (const n of data.watchlistNews) {
-      push('- **[' + n.symbol + ']** ' + n.title + '（' + n.source + ' · ' + String(n.publishedAt).slice(0, 10) +
-        (n.sentiment !== null && n.sentiment !== undefined ? ' · 情绪 ' + n.sentiment : '') + '）');
-      if (n.link) push('  <' + n.link + '>');
+    for (const [sector, list] of groupBySector(data.watchlistNews, data.cfg.watchlist?.sectorOrder || [])) {
+      push('### ' + sector + '（' + list.length + ' 条）');
+      push('');
+      for (const n of list) {
+        push('- **[' + n.symbol + ']** ' + n.title + '（' + n.source + ' · ' + String(n.publishedAt).slice(0, 10) +
+          (n.sentiment !== null && n.sentiment !== undefined ? ' · 情绪 ' + n.sentiment : '') + '）');
+        if (n.link) push('  <' + n.link + '>');
+      }
+      push('');
     }
   } else push('_窗口内无自选股新闻_');
   push('');
@@ -126,16 +153,28 @@ export const AI_INSTRUCTION = [
   '',
   '## 📈 自选股动向',
   '',
-  '**存储 / 半导体设备**',
-  '- **MU 美光**　Micron: The Market May Be Pricing In...（SeekingAlpha） —— 一句话说明这条消息对公司的含义',
-  '- **ASML 阿斯麦**　...',
+  '### 存储芯片',
   '',
-  '**AI 算力 / 电力**',
-  '- **CRWV CoreWeave**　UBS 认为 AI 基础设施市场仍然火热 —— ...',
+  '**MU 美光**',
+  '- Micron: The Market May Be Pricing In...（SeekingAlpha） —— 一句话说明这条消息对公司的含义',
+  '- HBM 需求下具备翻倍潜力 —— 同一逻辑的强化版本',
   '',
-  '（数据里的第六节是自选股新闻。请按主题分组，每条一行，格式：- **代码 中文名**　原标题（来源） —— 一句话解读。',
-  '  代码和公司名保留英文，标题可翻译成中文。若某条属于纯市场综述而非该公司自身消息，可略过。',
-  '  这些是用户明确持有的标的，务必全部覆盖到，不要漏。）',
+  '**SNDK 闪迪**',
+  '- 长期协议覆盖优质但估值偏贵（上调评级） —— 长协锁定价格是利好',
+  '',
+  '### AI 算力 / 数据中心供电',
+  '',
+  '**CRWV CoreWeave**',
+  '- UBS 认为 AI 基础设施市场仍然火热 —— 算力租赁需求未见降温',
+  '',
+  '（数据里的第六节已经按板块分好组了，请严格遵守：',
+  '  1. **原样沿用那些板块名称和分组**，绝对不要按新闻内容重新归类。',
+  '     比如 INTC 永远属于「半导体」，哪怕它那条消息写的是市场综述也一样；SOXX 属于「指数 / ETF」。',
+  '  2. 每个板块用 ### 三级标题，板块内**按标的拆分**：每只标的用一个加粗行 **代码 中文名** 开头，',
+  '     它的新闻作为下面以 - 开头的条目，格式：- 标题（可译成中文） —— 一句话解读。',
+  '  3. 标题里与标的重复的公司名前缀请去掉（「美光：xxx」→「xxx」），避免和标题行重复。',
+  '  4. 数据里出现过的标的一个都不能漏；若某条确实是纯市场综述，保留条目但在解读里点明。',
+  '  5. 同一只标的不能出现在两个板块下。）',
   '',
   '## 🔭 前瞻日历',
   '',
@@ -269,11 +308,13 @@ export function renderFallbackMarkdown(data) {
   push('## 📈 自选股动向');
   push('');
   if (data.watchlistNews?.length) {
-    for (const n of data.watchlistNews) {
-      push('- **' + n.symbol + '**　' + clip(n.title, 76) + '（' + n.source + '）' + (n.link ? '　' + n.link : ''));
+    for (const [sector, list] of groupBySector(data.watchlistNews, data.cfg.watchlist?.sectorOrder || [])) {
+      push('### ' + sector);
+      push('');
+      for (const n of list) push('- **' + n.symbol + '**　' + clip(n.title, 74) + '（' + n.source + '）' + (n.link ? '　' + n.link : ''));
+      push('');
     }
-  } else push('- 窗口内无自选股新闻');
-  push('');
+  } else { push('- 窗口内无自选股新闻'); push(''); }
 
   push('## 📰 最新新闻');
   push('');
