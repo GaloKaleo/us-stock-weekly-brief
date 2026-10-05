@@ -29,7 +29,11 @@ export function resolveLlmConfig(cfg = {}) {
   const apiKey = (env.LLM_API_KEY || env[preset.keyEnv] || '').trim();
   const baseUrl = (env.LLM_BASE_URL || cfg.baseUrl || preset.baseUrl || '').replace(/\/+$/, '');
   const model = (env.LLM_MODEL || cfg.model || preset.model || '').trim();
-  return { providerName, label: preset.label, apiKey, baseUrl, model, maxTokens: Number(env.LLM_MAX_TOKENS || cfg.maxTokens || 4000), temperature: Number(env.LLM_TEMPERATURE ?? cfg.temperature ?? 0.4) };
+  // DeepSeek V4 系列（deepseek-flash / deepseek-v4-pro）**默认开启思考模式**，
+  // 思维链会占用输出预算（导致 content 为空）且按输出价计费。本任务只是把给定数据改写成
+  // 固定格式的简报，不需要推理，因此默认关闭。非 DeepSeek 的兼容端点不发送该参数。
+  const thinking = (env.LLM_THINKING || cfg.thinking || (providerName === 'deepseek' ? 'disabled' : 'auto')).trim();
+  return { providerName, label: preset.label, apiKey, baseUrl, model, thinking, maxTokens: Number(env.LLM_MAX_TOKENS || cfg.maxTokens || 4000), temperature: Number(env.LLM_TEMPERATURE ?? cfg.temperature ?? 0.4) };
 }
 
 export function llmAvailable(cfg) { return Boolean(cfg.apiKey && cfg.baseUrl && cfg.model); }
@@ -48,7 +52,8 @@ export async function chat(cfg, { system, user, timeoutMs = 240000 }) {
           ...(system ? [{ role: 'system', content: system }] : []),
           { role: 'user', content: user },
         ],
-        temperature: cfg.temperature,
+        ...(cfg.thinking && cfg.thinking !== 'auto' ? { thinking: { type: cfg.thinking } } : {}),
+        ...(cfg.thinking === 'enabled' ? {} : { temperature: cfg.temperature }),
         max_tokens: cfg.maxTokens,
         stream: false,
       }),
@@ -58,7 +63,13 @@ export async function chat(cfg, { system, user, timeoutMs = 240000 }) {
     if (!res.ok) throw new Error('LLM HTTP ' + res.status + ': ' + text.slice(0, 400));
     const json = JSON.parse(text);
     const content = json?.choices?.[0]?.message?.content;
-    if (!content) throw new Error('LLM 返回为空: ' + text.slice(0, 300));
+    const reasoning = json?.choices?.[0]?.message?.reasoning_content;
+    if (!content) {
+      if (reasoning) throw new Error('模型把输出预算全用在思考链上了（thinking 模式未关闭），content 为空。请在 config 里设 llm.thinking="disabled"，或调大 maxTokens。');
+      throw new Error('LLM 返回为空: ' + text.slice(0, 300));
+    }
+    const finish = json?.choices?.[0]?.finish_reason;
+    if (finish === 'length') log('  ! 输出被 max_tokens 截断（finish_reason=length）');
     const usage = json.usage || {};
     log('  LLM 用量: prompt=' + (usage.prompt_tokens ?? '?') + ' completion=' + (usage.completion_tokens ?? '?'));
     return content.trim();
