@@ -75,7 +75,7 @@
   "llm": {
     "enabled": true,
     "provider": "deepseek",
-    "model": "deepseek-chat",
+    "model": "deepseek-flash",
     "maxTokens": 4000,
     "temperature": 0.4
   },
