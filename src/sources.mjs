@@ -443,6 +443,120 @@ export function computeKeyDates(startYmd, days, fomc = []) {
   return out;
 }
 
+// ---------------------------------------------------------------- 自选股周涨跌
+/**
+ * 自选股过去一周涨跌幅（Tiingo 免费档的日线接口）。
+ * 「一周」= 最新收盘 vs 5 个交易日前的收盘（即上周五 → 本周五）。
+ * 23 只标的 = 23 次请求，Tiingo 免费档 500 次/天，每周只跑一次，绰绰有余。
+ */
+export async function collectWatchlistPerformance(cfg, now = Date.now()) {
+  const w = cfg.watchlist || {};
+  const key = (process.env.TIINGO_API_KEY || w.tiingoKey || '').trim();
+  if (!key) { log('      （未配置 TIINGO_API_KEY，跳过周涨跌）'); return {}; }
+
+  const aliases = w.aliases || {};
+  const symbols = w.symbols || [];
+  const keywords = (w.keywords || []).map((k) => (typeof k === 'string' ? { term: k } : k));
+  const headers = { Authorization: 'Token ' + key, 'User-Agent': 'us-stock-weekly-brief' };
+  const start = new Date(now - 14 * 86400000).toISOString().slice(0, 10);
+  const end = new Date(now).toISOString().slice(0, 10);
+
+  // 同一只标的可能被多个键引用（HYNIX 和 SK hynix 都指向 HXSCL），只请求一次
+  const jobs = new Map();
+  const addJob = (ticker, mapKey) => {
+    const q = String(ticker).toUpperCase();
+    if (!jobs.has(q)) jobs.set(q, []);
+    jobs.get(q).push(mapKey);
+  };
+  for (const sym of symbols) addJob(aliases[sym] || sym, sym);
+  for (const kw of keywords) if (kw.perfSymbol) addJob(kw.perfSymbol, kw.term);
+
+  const out = {};
+  let requests = 0, stale = 0, empty = 0, viaNasdaq = 0;
+  let tiingoBlocked = false;
+
+  for (const [ticker, mapKeys] of jobs) {
+    let rec = null;
+
+    // 主源：Tiingo（免费档按小时限流，所以不重试，一旦被限就整体切换备用源）
+    if (!tiingoBlocked) {
+      try {
+        const bars = await httpJson(
+          'https://api.tiingo.com/tiingo/daily/' + encodeURIComponent(ticker) + '/prices?startDate=' + start + '&endDate=' + end,
+          { headers, timeoutMs: 20000, retries: 0 },
+        );
+        requests++;
+        if (Array.isArray(bars) && bars.length >= 2) {
+          const last = bars[bars.length - 1];
+          const base = bars[Math.max(0, bars.length - 6)];
+          // 整段收盘价完全相同 = 行情源数据停滞（OTC ADR 常见），显示成 0.00% 会误导，直接丢弃
+          if (bars.every((b) => b.close === bars[0].close)) stale++;
+          else if (last?.close && base?.close) {
+            rec = { pct: (last.close / base.close - 1) * 100, last: last.close, asOf: String(last.date).slice(0, 10) };
+          } else empty++;
+        } else empty++;
+      } catch (err) {
+        if (/HTTP 429/.test(err.message)) {
+          tiingoBlocked = true;
+          log('  ! Tiingo 触发小时限流，其余标的改用 Nasdaq 备用源');
+        } else log('  ! Tiingo ' + ticker + ' 失败: ' + err.message);
+      }
+      await sleep(150);
+    }
+
+    // 备用源：Nasdaq 历史行情（免费、无 key、无配额）
+    if (!rec) {
+      const bars = await nasdaqDaily(ticker, start, end).catch(() => null);
+      if (bars) {
+        const last = bars[0];
+        const base = bars[Math.min(bars.length - 1, 5)];
+        const lc = parsePrice(last?.close), bc = parsePrice(base?.close);
+        if (lc && bc && bars.some((b) => parsePrice(b.close) !== lc)) {
+          rec = { pct: (lc / bc - 1) * 100, last: lc, asOf: toYmd(last.date) };
+          viaNasdaq++;
+        }
+      }
+      await sleep(180);
+    }
+
+    if (rec) for (const k of mapKeys) out[k] = rec;
+  }
+
+  log('      ' + Object.keys(out).length + ' 个标的取到行情（Tiingo ' + requests + ' 次' +
+    (viaNasdaq ? ' / Nasdaq 备用 ' + viaNasdaq + ' 次' : '') +
+    (stale ? '，' + stale + ' 个行情停滞已跳过' : '') + (empty ? '，' + empty + ' 个数据不足' : '') + '）');
+  return out;
+}
+
+/** 解析 "$1,074.89" / "1074.89" */
+function parsePrice(s) {
+  const n = parseFloat(String(s ?? '').replace(/[$,]/g, ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** "10/02/2026" -> "2026-10-02" */
+function toYmd(s) {
+  const m = String(s || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? m[3] + '-' + m[1] + '-' + m[2] : String(s || '');
+}
+
+/** Nasdaq 历史行情（备用源）。ETF 的 assetclass 与个股不同，两个都试一遍。 */
+export async function nasdaqDaily(ticker, startYmd, endYmd) {
+  for (const assetclass of ['stocks', 'etf']) {
+    try {
+      const j = await httpJson(
+        'https://api.nasdaq.com/api/quote/' + encodeURIComponent(ticker) + '/historical?assetclass=' + assetclass +
+        '&fromdate=' + startYmd + '&todate=' + endYmd + '&limit=25',
+        { headers: NASDAQ_HEADERS, timeoutMs: 20000, retries: 0 },
+      );
+      const rows = j?.data?.tradesTable?.rows;
+      if (Array.isArray(rows) && rows.length >= 2) return rows;
+    } catch { /* 换下一个 assetclass */ }
+    await sleep(120);
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------- 自选股新闻
 const SA_RSS = 'https://seekingalpha.com/api/sa/combined/';
 const MARKETAUX = 'https://api.marketaux.com/v1/news/all';
