@@ -48,6 +48,16 @@ jobs:
           SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
           PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
 
+          # 每个渠道的内容长度：short = 精简版（要点速览+关键日期+财报，约 1.6KB 一条发完）
+          #                       full  = 完整版（含 AI 全文解读）
+          # 留空则使用 config/default.json 里的默认值（企业微信默认 short，其余默认 full）。
+          # 想临时切换又不想改代码：仓库 Settings → Secrets and variables → Actions → Variables
+          WECOM_MODE: ${{ vars.WECOM_MODE }}
+          DINGTALK_MODE: ${{ vars.DINGTALK_MODE }}
+          FEISHU_MODE: ${{ vars.FEISHU_MODE }}
+          SERVERCHAN_MODE: ${{ vars.SERVERCHAN_MODE }}
+          PUSHPLUS_MODE: ${{ vars.PUSHPLUS_MODE }}
+
           DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
         run: node src/main.mjs
 
