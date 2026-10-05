@@ -7,7 +7,7 @@ import {
 } from './util.mjs';
 import {
   collectNews, collectEcon, collectEarnings, collectEdgar8K,
-  computeKeyDates, fetchFomcDates, collectWatchlistNews,
+  computeKeyDates, fetchFomcDates, collectWatchlistNews, collectWatchlistPerformance,
 } from './sources.mjs';
 import {
   renderDataMarkdown, renderFinalMarkdown, renderShortMarkdown,
@@ -87,22 +87,22 @@ async function main() {
 
   const errors = [];
 
-  log('[1/6] 拉取新闻…');
+  log('[1/7] 拉取新闻…');
   const news = await collectNews(cfg).catch((e) => { errors.push('news: ' + e.message); log('  ! 新闻整体失败: ' + e.message); return []; });
   log('      ' + news.length + ' 条');
 
-  log('[2/6] 拉取本周经济日历…');
+  log('[2/7] 拉取本周经济日历…');
   const econ = await collectEcon(weekStart, cfg.econ?.days ?? 6).catch((e) => { errors.push('econ: ' + e.message); return []; });
   log('      ' + econ.length + ' 项');
 
-  log('[3/6] 拉取未来两周财报…');
+  log('[3/7] 拉取未来两周财报…');
   const earnings = await collectEarnings(weekStart, cfg.earnings?.days ?? 14, {
     minMarketCap: cfg.earnings?.minMarketCap ?? 20e9,
     maxPerDay: cfg.earnings?.maxPerDay ?? 8,
   }).catch((e) => { errors.push('earnings: ' + e.message); return []; });
   log('      ' + earnings.length + ' 家');
 
-  log('[4/6] 拉取 FOMC 日历与 SEC 8-K…');
+  log('[4/7] 拉取 FOMC 日历与 SEC 8-K…');
   const fomc = await fetchFomcDates().catch((e) => { errors.push('fomc: ' + e.message); return []; });
   // 8-K 监控范围 = 原有大市值清单 ∪ 用户自选股
   const edgarWatch = [...new Set([...(cfg.edgar?.watchlist || []), ...(cfg.watchlist?.symbols || [])])];
@@ -110,10 +110,13 @@ async function main() {
   const keyDates = computeKeyDates(weekStart, cfg.keyDatesDays ?? 45, fomc);
   log('      FOMC ' + fomc.length + ' 场 / 8-K ' + edgar.length + ' 条 / 关键日期 ' + keyDates.length + ' 个');
 
-  log('[5/6] 拉取自选股新闻…');
+  log('[5/7] 拉取自选股新闻…');
   const watchlistNews = await collectWatchlistNews(cfg).catch((e) => { errors.push('watchlist: ' + e.message); return []; });
   const covered = new Set(watchlistNews.map((x) => x.symbol));
   log('      ' + watchlistNews.length + ' 条 / 覆盖 ' + covered.size + ' 个标的');
+
+  log('[6/7] 拉取自选股周涨跌…');
+  const watchlistPerf = await collectWatchlistPerformance(cfg).catch((e) => { errors.push('perf: ' + e.message); return {}; });
 
   const data = {
     todayNy, weekStart, weekEnd, generatedAtCn,
@@ -126,7 +129,7 @@ async function main() {
         sectorOrder: Object.keys(cfg.watchlist?.sectors || {}),
       },
     },
-    news, econ, earnings, edgar, keyDates, fomc, watchlistNews, errors,
+    news, econ, earnings, edgar, keyDates, fomc, watchlistNews, watchlistPerf, errors,
   };
 
   ensureDir(OUT);
@@ -134,7 +137,7 @@ async function main() {
   fs.writeFileSync(path.join(OUT, 'raw-data.md'), dataMd, 'utf8');
   writeJson(path.join(OUT, 'raw-data.json'), data);
 
-  log('[6/6] 生成 AI 解读…');
+  log('[7/7] 生成 AI 解读…');
   let aiText = null;
   const llmCfg = resolveLlmConfig(cfg.llm);
   if (cfg.llm?.enabled === false) log('      已在配置中禁用 AI');
