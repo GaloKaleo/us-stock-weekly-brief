@@ -144,6 +144,7 @@
 | keyDatesDays | 关键日期前瞻天数（默认 45） |
 | edgar.watchlist | 关注 8-K 的股票代码列表 |
 | llm.model | 使用的模型，默认 deepseek-flash |
+| llm.thinking | DeepSeek V4 默认开启思考模式，会占满输出预算且按输出价计费，默认设为 disabled |
 | llm.enabled | 设为 false 可关闭 AI，只输出规则聚合版 |
 | channels.*.mode | full = 完整版（默认）；short = 精简版（要点速览+日历+财报，约 1.6KB 一条发完） |
 
