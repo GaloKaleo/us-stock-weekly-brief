@@ -464,8 +464,17 @@ export async function collectWatchlistNews(cfg, now = Date.now()) {
   const w = cfg.watchlist || {};
   const symbols = w.symbols || [];
   const aliases = w.aliases || {};
-  const keywords = w.keywords || [];
+  // 关键词支持两种写法：字符串，或 { term, sector }
+  const keywords = (w.keywords || []).map((k) => (typeof k === 'string' ? { term: k, sector: '其他' } : k));
   if (!symbols.length && !keywords.length) return [];
+
+  // 板块归属完全由配置决定（config.watchlist.sectors），不让 AI 按新闻内容自行归类。
+  // 否则「纳斯达克 9 月涨 2%」这种市场综述会把 INTC 归到指数板块去。
+  const sectors = w.sectors || {};
+  const sectorOf = (sym) => {
+    for (const [name, list] of Object.entries(sectors)) if (list.includes(sym)) return name;
+    return '其他';
+  };
 
   const maxAgeDays = w.maxAgeDays ?? 8;
   const cutoff = now - maxAgeDays * 86400000;
@@ -485,7 +494,7 @@ export async function collectWatchlistNews(cfg, now = Date.now()) {
     if (n >= perSymbol) return;
     perSymbolCount.set(sym, n + 1);
     seen.add(key);
-    items.push(rec);
+    items.push({ ...rec, sector: rec.sector || sectorOf(sym) });
   };
 
   const httpOpts = { timeoutMs: 20000, retries: 1 };
@@ -552,13 +561,13 @@ export async function collectWatchlistNews(cfg, now = Date.now()) {
     // ---- 3) 关键词（覆盖非美股标的）
     for (const kw of keywords) {
       try {
-        const j = await call('search=' + encodeURIComponent(kw) + '&language=en&limit=3&published_after=' + iso);
+        const j = await call('search=' + encodeURIComponent(kw.term) + '&language=en&limit=3&published_after=' + iso);
         for (const d of j?.data || []) {
           const t = Date.parse(d.published_at);
           if (Number.isNaN(t) || t < cutoff) continue;
-          push({ symbol: kw, title: d.title, link: d.url, publishedAt: new Date(t).toISOString(), source: String(d.source || 'Marketaux').replace(/^www\./, ''), sentiment: null });
+          push({ symbol: kw.term, sector: kw.sector, title: d.title, link: d.url, publishedAt: new Date(t).toISOString(), source: String(d.source || 'Marketaux').replace(/^www\./, ''), sentiment: null });
         }
-      } catch (err) { log('  ! Marketaux 关键词「' + kw + '」失败: ' + err.message); }
+      } catch (err) { log('  ! Marketaux 关键词「' + kw.term + '」失败: ' + err.message); }
       await sleep(300);
     }
     log('      Marketaux 用了 ' + requests + ' 次请求（免费档 30 次/天）');
