@@ -61,7 +61,15 @@
 3. 形如 https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxxxxxx
 4. 把它填进 **WECOM_WEBHOOK**
 
-> 企微单条 markdown 上限约 4KB，程序会自动分片，拆成 "(1/3)、(2/3)…" 连续发送。
+> **企业微信用的是 `markdown_v2` 消息格式，不是旧版 `markdown`。**
+> 这一点很关键：旧版 markdown 只支持标题/加粗/链接/引用/行内代码/字体颜色，
+> **不支持列表、表格、分割线**，发过去会变成一堆裸文本，排版很难看。
+> `markdown_v2` 支持列表、表格、分割线、斜体（代价是不支持字体颜色）。
+> 注意：企业微信客户端低于 4.1.36（安卓 4.1.38）时 `markdown_v2` 会**显示为纯文本**，建议升级到最新版。
+>
+> 单条上限 4096 字节，超长会自动分片成 "(1/3)、(2/3)…" 连续发送，间隔 3.2 秒（官方限制 20 条/分钟，已适配）。
+> 若不想刷屏，可把 `config/default.json` 里 `channels.wecom.mode` 改成 `short`（精简版约 1.6KB，一条发完），
+> 或在仓库 **Settings → Secrets and variables → Actions → Variables** 里加 `WECOM_MODE=short` 即时生效，无需改代码。
 
 ### 钉钉
 
@@ -137,6 +145,7 @@
 | edgar.watchlist | 关注 8-K 的股票代码列表 |
 | llm.model | 使用的模型，默认 deepseek-chat |
 | llm.enabled | 设为 false 可关闭 AI，只输出规则聚合版 |
+| channels.*.mode | full = 完整版（默认）；short = 精简版（要点速览+日历+财报，约 1.6KB 一条发完） |
 
 也可以用**环境变量**覆盖（优先级更高）：
 
