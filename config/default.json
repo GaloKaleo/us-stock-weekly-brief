@@ -82,24 +82,29 @@
   "channels": {
     "wecom": {
       "enabled": false,
-      "webhook": ""
+      "webhook": "",
+      "mode": "full"
     },
     "dingtalk": {
       "enabled": false,
       "webhook": "",
-      "secret": ""
+      "secret": "",
+      "mode": "full"
     },
     "feishu": {
       "enabled": false,
-      "webhook": ""
+      "webhook": "",
+      "mode": "full"
     },
     "serverchan": {
       "enabled": false,
-      "key": ""
+      "key": "",
+      "mode": "full"
     },
     "pushplus": {
       "enabled": false,
-      "token": ""
+      "token": "",
+      "mode": "full"
     }
   }
 }
