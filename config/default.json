@@ -76,6 +76,7 @@
     "enabled": true,
     "provider": "deepseek",
     "model": "deepseek-flash",
+    "thinking": "disabled",
     "maxTokens": 4000,
     "temperature": 0.4
   },
