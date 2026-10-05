@@ -4,6 +4,13 @@ import { log } from './util.mjs';
 
 const bytes = (s) => Buffer.byteLength(s, 'utf8');
 
+/**
+ * 各平台分片之间的发送间隔。
+ * 企业微信群机器人官方限制是「每个机器人不超过 20 条/分钟」，
+ * 所以间隔必须 >= 3000ms，否则长报告分片时会触发限流。
+ */
+const CHUNK_DELAY_MS = { wecom: 3200, dingtalk: 3200, feishu: 1500, serverchan: 1200, pushplus: 1200 };
+
 /** 按小节切块，尽量不破坏 Markdown 结构 */
 export function chunkMarkdown(md, maxBytes) {
   const sections = String(md).split(/\n(?=##\s)/);
@@ -53,7 +60,7 @@ async function sendWecom(webhook, title, md) {
     const head = chunks.length > 1 ? '## ' + title + '（' + (i + 1) + '/' + chunks.length + '）\n\n' : '';
     await postJson(webhook, { msgtype: 'markdown', markdown: { content: head + chunks[i] } });
     log('  ✓ 企业微信 第 ' + (i + 1) + '/' + chunks.length + ' 条已发送');
-    if (i < chunks.length - 1) await new Promise((r) => setTimeout(r, 1200));
+    if (i < chunks.length - 1) await new Promise((r) => setTimeout(r, CHUNK_DELAY_MS.wecom));
   }
 }
 
@@ -73,7 +80,7 @@ async function sendDingtalk(webhook, secret, title, md) {
     const head = chunks.length > 1 ? '### ' + title + '（' + (i + 1) + '/' + chunks.length + '）\n\n' : '';
     await postJson(url, { msgtype: 'markdown', markdown: { title: title + (chunks.length > 1 ? ' ' + (i + 1) + '/' + chunks.length : ''), text: head + chunks[i] } });
     log('  ✓ 钉钉 第 ' + (i + 1) + '/' + chunks.length + ' 条已发送');
-    if (i < chunks.length - 1) await new Promise((r) => setTimeout(r, 1200));
+    if (i < chunks.length - 1) await new Promise((r) => setTimeout(r, CHUNK_DELAY_MS.dingtalk));
   }
 }
 
@@ -91,7 +98,7 @@ async function sendFeishu(webhook, title, md) {
       },
     });
     log('  ✓ 飞书 第 ' + (i + 1) + '/' + chunks.length + ' 条已发送');
-    if (i < chunks.length - 1) await new Promise((r) => setTimeout(r, 1200));
+    if (i < chunks.length - 1) await new Promise((r) => setTimeout(r, CHUNK_DELAY_MS.feishu));
   }
 }
 
