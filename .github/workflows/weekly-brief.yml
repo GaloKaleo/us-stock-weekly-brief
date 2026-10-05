@@ -38,6 +38,13 @@ jobs:
           LLM_PROVIDER: deepseek
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
 
+          # 自选股新闻的数据源。
+          # 主力是 SeekingAlpha 个股 RSS（免费、无需 key）；Marketaux 只在 SeekingAlpha
+          # 没覆盖到的代码上做补充，并负责「SK hynix / HBM」这类关键词检索（免费档 30 次/天）。
+          MARKETAUX_API_KEY: ${{ secrets.MARKETAUX_API_KEY }}
+          # Tiingo 当前未使用：免费套餐不含 News API（返回 403），此处仅为将来备用
+          TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
+
           # 群机器人：填哪个就推哪个，留空的自动跳过
           WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
           DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
