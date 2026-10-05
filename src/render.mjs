@@ -170,7 +170,8 @@ export function decorateSections(md) {
     }
     out.push(line);
   }
-  return out.join('\n');
+  // 折叠多余空行，避免 `---` 前后出现三连换行
+  return out.join('\n').replace(/\n{3,}/g, '\n\n');
 }
 
 /**
