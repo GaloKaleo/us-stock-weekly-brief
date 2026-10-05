@@ -63,6 +63,17 @@ export function renderDataMarkdown(data) {
     }
   } else push('_窗口内无自选股 8-K 提交_');
   push('');
+
+  push('## 六、自选股新闻（最近 ' + (data.cfg.watchlist?.maxAgeDays ?? 8) + ' 天）');
+  push('');
+  if (data.watchlistNews?.length) {
+    for (const n of data.watchlistNews) {
+      push('- **[' + n.symbol + ']** ' + n.title + '（' + n.source + ' · ' + String(n.publishedAt).slice(0, 10) +
+        (n.sentiment !== null && n.sentiment !== undefined ? ' · 情绪 ' + n.sentiment : '') + '）');
+      if (n.link) push('  <' + n.link + '>');
+    }
+  } else push('_窗口内无自选股新闻_');
+  push('');
   return L.join('\n');
 }
 
@@ -112,6 +123,19 @@ export const AI_INSTRUCTION = [
   '- **PEP 百事可乐**　市值 $171.8B　预期 EPS 2.29 —— 必需消费代表，关注北美量价是否齐跌',
   '',
   '（按「日期 + 盘前/盘后」分组，挑市值最大或最受关注的 6-10 家，格式同上）',
+  '',
+  '## 📈 自选股动向',
+  '',
+  '**存储 / 半导体设备**',
+  '- **MU 美光**　Micron: The Market May Be Pricing In...（SeekingAlpha） —— 一句话说明这条消息对公司的含义',
+  '- **ASML 阿斯麦**　...',
+  '',
+  '**AI 算力 / 电力**',
+  '- **CRWV CoreWeave**　UBS 认为 AI 基础设施市场仍然火热 —— ...',
+  '',
+  '（数据里的第六节是自选股新闻。请按主题分组，每条一行，格式：- **代码 中文名**　原标题（来源） —— 一句话解读。',
+  '  代码和公司名保留英文，标题可翻译成中文。若某条属于纯市场综述而非该公司自身消息，可略过。',
+  '  这些是用户明确持有的标的，务必全部覆盖到，不要漏。）',
   '',
   '## 🔭 前瞻日历',
   '',
@@ -181,6 +205,7 @@ export function decorateSections(md) {
 export function renderFallbackMarkdown(data) {
   const L = [];
   const push = (s = '') => L.push(s);
+  const clip = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length <= n ? s : s.slice(0, n - 1) + '…'; };
 
   push('## 🗓 本周关键日程');
   push('');
@@ -239,6 +264,15 @@ export function renderFallbackMarkdown(data) {
       push('- **' + shortDate(e.date) + ' ' + e.ticker + '**' + (e.meanings.length ? '　事项：' + e.meanings.join('、') : '') + (e.url ? '　' + e.url : ''));
     }
   } else push('- 窗口内无自选股 8-K 提交');
+  push('');
+
+  push('## 📈 自选股动向');
+  push('');
+  if (data.watchlistNews?.length) {
+    for (const n of data.watchlistNews) {
+      push('- **' + n.symbol + '**　' + clip(n.title, 76) + '（' + n.source + '）' + (n.link ? '　' + n.link : ''));
+    }
+  } else push('- 窗口内无自选股新闻');
   push('');
 
   push('## 📰 最新新闻');
