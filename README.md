@@ -17,7 +17,8 @@
 | 📊 重点财报前瞻 | 未来两周市值 ≥ 200 亿美元的财报，含盘前/盘后、预期 EPS、去年同期 EPS、覆盖分析师数 | Nasdaq 财报日历 |
 | 🔭 前瞻日历 | FOMC 议息、月度期权到期、四巫日、指数季度再平衡、NYSE 休市日 | 美联储官网 + 规则推算 |
 | 📰 上周要闻回顾 | 宏观政策 / 科技AI / 财报个股 / 关税地缘 分类，带原文链接 | CNBC / MarketWatch / WSJ / 美联储 RSS |
-| 📎 SEC 8-K 重大公告 | 自选股（50 家大市值公司）的 8-K，含事项编号解读（如"高管变动 5.02"） | SEC EDGAR |
+| 📈 自选股动向 | 你持有的标的各自的最新消息（存储 / 半导体设备 / AI 算力等主题分组） | SeekingAlpha 个股 RSS + Marketaux |
+| 📎 SEC 8-K 重大公告 | 自选股 + 50 家大市值公司的 8-K，含事项编号解读（如"高管变动 5.02"） | SEC EDGAR |
 
 覆盖周期：**运行当周（美东时间周一 ~ 周日）**。全文末尾附免责声明。
 
@@ -142,7 +143,12 @@
 | earnings.days | 财报前瞻天数（默认 14） |
 | econ.days | 经济日历天数（默认 6，即本周一到周六） |
 | keyDatesDays | 关键日期前瞻天数（默认 45） |
-| edgar.watchlist | 关注 8-K 的股票代码列表 |
+| edgar.watchlist | 关注 8-K 的股票代码列表（自动并入 watchlist.symbols） |
+| **watchlist.symbols** | **自选股列表，用于「📈 自选股动向」板块** |
+| watchlist.aliases | 代码别名映射，如 SK 海力士写成 HYNIX → 实际查 HXSCL |
+| watchlist.keywords | 关键词检索，覆盖没有美股代码的标的（如 SK hynix、HBM memory） |
+| watchlist.limit | 自选股新闻条数上限（默认 24；采用轮转挑选，保证每个标的都露面） |
+| watchlist.excludePublishers | 出版商黑名单，过滤 SEO 内容农场 |
 | llm.model | 使用的模型，默认 deepseek-flash |
 | llm.thinking | DeepSeek V4 默认开启思考模式，会占满输出预算且按输出价计费，默认设为 disabled |
 | llm.enabled | 设为 false 可关闭 AI，只输出规则聚合版 |
