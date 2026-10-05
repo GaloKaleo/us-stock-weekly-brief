@@ -1,0 +1,16 @@
+{
+  "name": "us-stock-weekly-brief",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "每周一早晨自动生成的美股前瞻周报：新闻聚合 + 经济日历 + 财报日历 + 关键日期 + AI 中文解读，推送到企业微信/钉钉/飞书。",
+  "scripts": {
+    "start": "node src/main.mjs",
+    "dry-run": "node src/main.mjs --dry-run",
+    "test-push": "node src/main.mjs --test-push"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
